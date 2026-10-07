@@ -1,0 +1,19 @@
+Port 2222
+HostKey __VOL__/ssh/ssh_host_ed25519_key
+HostKey __VOL__/ssh/ssh_host_rsa_key
+PermitRootLogin no
+PasswordAuthentication yes
+KbdInteractiveAuthentication no
+UsePAM yes
+AllowGroups dockyard
+MaxAuthTries 4
+LoginGraceTime 30
+X11Forwarding no
+AllowTcpForwarding no
+AllowAgentForwarding no
+PermitTunnel no
+GatewayPorts no
+ClientAliveInterval 60
+ClientAliveCountMax 5
+PrintMotd yes
+Subsystem sftp internal-sftp
