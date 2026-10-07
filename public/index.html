@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dockyard</title>
+<link rel="stylesheet" href="/vendor/xterm/css/xterm.css">
+<style>
+:root{
+  --bg:#E3E2DC; --panel:#F3F2ED; --ink:#19212B; --ink2:#2A3441; --muted:#5E6670; --line:#CBC9C0; --track:#D9D7CE;
+  --ok:#2F7D4F; --warn:#B7791F; --danger:#A63232; --accent:#E0A81F;
+  --head:"Bahnschrift","DIN Alternate","Roboto Condensed","Arial Narrow","Helvetica Neue",system-ui,sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Myanmar",sans-serif;
+}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid #3D7BD9;outline-offset:2px}
+[hidden]{display:none!important}
+.app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+
+.side{background:var(--ink);color:#D5D9DE;padding:22px 14px;display:flex;flex-direction:column;gap:26px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px;color:#fff;font:700 24px/1 var(--head)}
+.brand svg{width:30px;height:30px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:12px;background:none;border:0;color:inherit;text-align:left;padding:10px 12px;border-radius:5px;position:relative}
+.nav button svg{width:20px;height:20px;flex:none;opacity:.85}
+.nav button:hover{background:#222C38}
+.nav button.on{background:var(--ink2);color:#fff}
+.nav button.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;background:var(--accent);border-radius:2px}
+.me{margin-top:auto;padding:12px;border:1px solid #33404F;border-radius:6px;font-size:13px;color:#AEB6BF;overflow-wrap:anywhere}
+.me b{display:block;color:#fff;font-weight:600;font-size:14px}
+
+.main{padding:30px clamp(16px,3.2vw,44px) 60px;max-width:1280px;width:100%}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:24px}
+h1{font:700 36px/1.05 var(--head)}
+.sub{color:var(--muted);margin-top:6px}
+.banner{background:#F6E7C4;border:1px solid #D9B96A;border-radius:4px;padding:12px 16px;margin-bottom:14px;font-size:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:transparent;padding:7px 13px;border-radius:6px;font-weight:600;font-size:14px;white-space:nowrap}
+.btn:hover:not(:disabled){background:#E8E7E0}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--accent);border-color:#B98A12;color:var(--ink);padding:9px 16px}
+.btn.primary:hover:not(:disabled){background:#EBB62E}
+.btn.danger{color:var(--danger);border-color:#D9B0B0}
+.btn.danger:hover:not(:disabled){background:#F1DCDC}
+.btn.sm{padding:5px 10px;font-size:13px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:22px;margin-bottom:20px}
+.panel h2{font:700 21px/1.2 var(--head);margin-bottom:4px}
+.hint{color:var(--muted);font-size:14px;margin-bottom:18px;max-width:64ch}
+
+.cap{margin-bottom:16px}
+.cap-head{display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px;gap:12px}
+.cap-head span{color:var(--muted);font-variant-numeric:tabular-nums}
+.stack{display:flex;gap:2px;height:24px}
+.stack i{border-radius:2px;min-width:3px}
+.stack i.free{background:repeating-linear-gradient(135deg,#D3D1C7 0 4px,transparent 4px 8px);border:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:6px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:11px;height:11px;border-radius:2px;display:inline-block}
+.log{list-style:none;padding:0}
+.log li{display:flex;gap:16px;padding:10px 0;border-top:1px solid var(--line)}
+.log li:first-child{border-top:0}
+.log time{color:var(--muted);width:76px;flex:none;font-size:14px}
+
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:20px}
+.search{flex:1;min-width:200px;max-width:340px;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:9px 12px}
+.chips{display:flex;gap:6px}
+.chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:6px 14px;font-size:14px}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+.yard{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:20px}
+.cn{background:var(--panel);border:1px solid var(--line);border-radius:3px;overflow:hidden;display:flex;flex-direction:column}
+.cn-top{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:14px 18px 16px;min-height:112px;position:relative;background:var(--c);color:var(--t);justify-content:flex-end}
+.cn-top::before,.dr-head::before,.login-top::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(0,0,0,.17) 0 3px,rgba(255,255,255,.08) 3px 5px,transparent 5px 11px)}
+.cn-top::after{content:"";position:absolute;inset:0;background:
+  linear-gradient(#0000003a,#0000003a) left top/14px 11px no-repeat,
+  linear-gradient(#0000003a,#0000003a) right top/14px 11px no-repeat,
+  linear-gradient(#0000003a,#0000003a) left bottom/14px 11px no-repeat,
+  linear-gradient(#0000003a,#0000003a) right bottom/14px 11px no-repeat}
+.cn-top>*{position:relative;z-index:1}
+.cn-top:focus-visible{outline:3px solid #3D7BD9;outline-offset:-3px}
+.plate{align-self:flex-start;background:#F3F2ED;color:var(--ink);font-size:11px;font-weight:700;padding:2px 7px;border-radius:2px;font-variant-numeric:tabular-nums;margin-bottom:auto}
+.cn-name{font:700 28px/1.1 var(--head);overflow-wrap:anywhere}
+.cn-img{font-size:13px;opacity:.9}
+.cn[data-status="suspended"] .cn-top{filter:saturate(.2) brightness(1.08)}
+.cn-body{padding:14px 18px 16px;display:flex;flex-direction:column;gap:12px}
+.owner{display:flex;justify-content:space-between;gap:8px;font-size:14px}
+.owner span{color:var(--muted)}
+.meter{display:grid;grid-template-columns:1fr auto;font-size:13px;gap:4px 8px}
+.meter b{font-weight:600;font-variant-numeric:tabular-nums}
+.bar{grid-column:1/-1;height:6px;background:var(--track);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px}
+.cn-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.status{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+.lamp{width:10px;height:10px;border-radius:50%;background:#9AA0A6}
+.active .lamp{background:var(--ok);box-shadow:0 0 0 3px #2F7D4F28}
+.badge{display:inline-block;background:#F1DCDC;color:var(--danger);font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;margin-left:6px}
+.acts{display:flex;gap:6px}
+.empty{grid-column:1/-1;text-align:center;padding:48px 16px;border:1px dashed var(--line);border-radius:4px;color:var(--muted)}
+.empty p{margin-bottom:14px}
+
+.tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:4px}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{text-align:left;padding:13px 18px;border-top:1px solid var(--line);font-size:14.5px;font-variant-numeric:tabular-nums}
+th{border-top:0;color:var(--muted);font-weight:600;font-size:13.5px;background:#EAE9E2}
+.who{display:flex;align-items:center;gap:12px;font-weight:600}
+.av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+
+.scrim{position:fixed;inset:0;background:rgba(25,33,43,.45);opacity:0;pointer-events:none;transition:opacity .2s;z-index:25}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(500px,100%);background:var(--panel);transform:translateX(100%);transition:transform .25s ease;z-index:30;overflow-y:auto;box-shadow:-14px 0 40px rgba(0,0,0,.2)}
+.drawer.open{transform:none}
+.dr-head{position:relative;background:var(--c);color:var(--t);padding:20px 24px 22px;min-height:150px;display:flex;flex-direction:column;gap:4px;overflow:hidden}
+.dr-head>*{position:relative}
+.dr-head h2{font:700 34px/1.1 var(--head);margin-top:auto;overflow-wrap:anywhere}
+.dr-head p{font-size:14px;opacity:.92}
+.dr-close{position:absolute;right:14px;top:12px;width:36px;height:36px;border-radius:50%;border:0;background:rgba(255,255,255,.88);color:var(--ink);font-size:22px;line-height:1;z-index:2}
+.dr-body{padding:22px 24px 40px;display:flex;flex-direction:column;gap:26px}
+.dr-body h3{font:700 17px/1.2 var(--head);margin-bottom:10px}
+.dr-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.field-box{border:1px solid var(--line);border-radius:5px;background:#fff;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13.5px;margin-bottom:8px;overflow-wrap:anywhere}
+.field-box code{font:13px/1.4 ui-monospace,Menlo,Consolas,monospace}
+.usage{display:grid;gap:12px;background:#fff;border:1px solid var(--line);border-radius:5px;padding:12px 14px}
+.limits{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.limits div{border:1px solid var(--line);border-radius:5px;padding:10px 12px;background:#fff}
+.limits b{display:block;font:700 22px/1.1 var(--head)}
+.limits span{font-size:13px;color:var(--muted)}
+.ptable{width:100%;min-width:0;background:#fff;border:1px solid var(--line);border-radius:5px;margin-bottom:8px}
+.ptable th,.ptable td{padding:7px 10px;font-size:13px}
+.note{font-size:13px;color:var(--muted);margin-top:8px}
+
+.modal-wrap{position:fixed;inset:0;background:rgba(25,33,43,.55);display:grid;place-items:center;z-index:40;padding:16px}
+.modal{background:var(--panel);width:min(560px,100%);max-height:92vh;overflow:auto;border-radius:10px;padding:26px}
+.modal h2{font:700 26px/1.1 var(--head);margin-bottom:18px}
+.lbl{display:block;font-weight:600;font-size:14px;margin:16px 0 6px}
+.in{width:100%;border:1px solid var(--line);background:#fff;border-radius:6px;padding:9px 12px}
+.plans{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.plan{position:relative;display:block}
+.plan input{position:absolute;opacity:0}
+.plan span{display:block;border:1.5px solid var(--line);border-radius:6px;padding:10px 12px;background:#fff;cursor:pointer}
+.plan span b{font:700 18px/1.1 var(--head);display:flex;justify-content:space-between}
+.plan span small{display:block;color:var(--muted);font-size:13px}
+.plan input:checked+span{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.plan input:focus-visible+span{outline:3px solid #3D7BD9;outline-offset:2px}
+.plan input:disabled+span{opacity:.45;cursor:not-allowed;background:#EEEDE7}
+.err{color:var(--danger);font-size:13.5px;margin-top:10px;min-height:20px}
+.mfoot{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+
+.login{min-height:100vh;display:grid;place-items:center;padding:20px}
+.login-card{width:min(400px,100%);background:var(--panel);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.login-top{position:relative;background:#2E6F6A;color:#fff;padding:18px 22px 20px;min-height:130px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
+.login-top>*{position:relative}
+.login-top h1{font-size:40px}
+.login-top p{font-size:14px;opacity:.92}
+.login-body{padding:8px 22px 24px}
+.login-body .btn{width:100%;margin-top:16px}
+
+.toasts{position:fixed;right:20px;bottom:20px;display:flex;flex-direction:column;gap:8px;z-index:60;max-width:min(420px,calc(100vw - 32px))}
+.toast{background:var(--ink);color:#fff;padding:11px 16px;border-radius:6px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.25);border-left:4px solid var(--accent);animation:tin .2s ease}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}}
+
+.termwrap{position:fixed;left:0;right:0;top:0;height:100vh;height:100dvh;z-index:50;background:#19212B;display:flex;flex-direction:column}
+.term-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;color:#fff;border-bottom:1px solid #33404F}
+.term-head b{font:700 18px/1.2 var(--head)}
+.term-head .btn{color:#fff;border-color:#4A5868}
+.term-head .btn:hover{background:#2A3441!important}
+.term-box{flex:1;min-height:0;padding:8px 6px 4px 10px}
+.term-box .xterm{height:100%}
+.keys{display:flex;gap:6px;overflow-x:auto;padding:8px 10px;border-top:1px solid #33404F}
+.keys button{flex:none;background:#2A3441;color:#fff;border:0;border-radius:5px;padding:9px 13px;font-size:13px;font-weight:600}
+.keys button:active{background:#3A4757}
+.top-actions{display:flex;gap:10px;align-items:center}
+@media (max-width:820px){
+  .app{grid-template-columns:1fr}
+  .side{position:fixed;bottom:0;left:0;right:0;top:auto;height:auto;flex-direction:row;padding:6px 8px;z-index:20;gap:0;border-top:1px solid #33404F}
+  .brand,.me{display:none}
+  .nav{flex-direction:row;width:100%;justify-content:space-around}
+  .nav button{flex-direction:column;gap:2px;font-size:12px;padding:6px 12px}
+  .nav button.on::before{left:25%;right:25%;top:0;bottom:auto;width:auto;height:3px}
+  .main{padding-bottom:96px}
+  h1{font-size:30px}
+  .top{align-items:center}
+  .toasts{left:16px;right:16px;bottom:78px;max-width:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="login" id="login" hidden>
+  <div class="login-card">
+    <div class="login-top"><span class="plate">Sign in</span><h1>Dockyard</h1><p>Manage your shared server and customers.</p></div>
+    <div class="login-body">
+      <label class="lbl" for="lEmail">Email</label>
+      <input class="in" id="lEmail" type="email" autocomplete="username">
+      <label class="lbl" for="lPass">Password</label>
+      <input class="in" id="lPass" type="password" autocomplete="current-password">
+      <p class="err" id="lErr" role="alert"></p>
+      <button class="btn primary" id="lGo" data-action="login">Sign in</button>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="shell" hidden>
+  <aside class="side">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="7" width="28" height="18" rx="1.5" fill="#E0A81F"/><path d="M7 7v18M11 7v18M15 7v18M19 7v18M23 7v18M27 7v18" stroke="#19212B" stroke-opacity=".28" stroke-width="1.6"/></svg>
+      Dockyard
+    </div>
+    <nav class="nav" aria-label="Main">
+      <button data-action="nav" data-route="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7.5" height="7.5" rx="1"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1"/></svg>Overview</button>
+      <button data-action="nav" data-route="servers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="6" width="19" height="12" rx="1"/><path d="M6.5 6v12M10.5 6v12M14.5 6v12M18.5 6v12"/></svg>Servers</button>
+      <button data-action="nav" data-route="customers" id="navCust"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.8a3.5 3.5 0 010 6.4M18.5 14.4c1.9.8 3 2.7 3 5.6"/></svg>Customers</button>
+      <button data-action="logout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/></svg>Sign out</button>
+    </nav>
+    <div class="me" id="me"></div>
+  </aside>
+  <main class="main" id="view"></main>
+</div>
+
+<div class="termwrap" id="termWrap" hidden>
+  <div class="term-head"><b id="termTitle">Terminal</b><button class="btn sm" data-action="close-term">Close</button></div>
+  <div class="term-box" id="termBox"></div>
+  <div class="keys" id="termKeys">
+    <button data-key="tab">Tab</button><button data-key="esc">Esc</button><button data-key="cc">Ctrl+C</button><button data-key="cd">Ctrl+D</button>
+    <button data-key="up">Up</button><button data-key="down">Down</button><button data-key="left">Left</button><button data-key="right">Right</button>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" data-action="close-drawer"></div>
+<aside class="drawer" id="drawer" aria-label="Server details" aria-hidden="true"></aside>
+<div id="modalRoot"></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="/vendor/xterm/lib/xterm.js"></script>
+<script src="/vendor/xterm-fit/lib/addon-fit.js"></script>
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const COLORS=[{bg:'#2E6F6A',fg:'#fff'},{bg:'#8F2D2A',fg:'#fff'},{bg:'#D9A621',fg:'#19212B'},{bg:'#37577D',fg:'#fff'},{bg:'#46703F',fg:'#fff'}];
+const AV=['#CFE3E0','#EBCFCD','#F1E2B5','#CFDAEA','#D4E4CF'];
+const STATUS={active:'Active',suspended:'Suspended'};
+
+const S={me:null,plans:{},totals:{cpu:0,ram:0,disk:0},ssh:{},canManage:true,hasVolume:true,servers:[],customers:[],events:[],route:'overview',q:'',filter:'all',drawerId:null,reveal:{}};
+const isAdmin=()=>S.me&&S.me.role==='admin';
+const col=s=>COLORS[s.id%COLORS.length];
+const get=id=>S.servers.find(s=>s.id===id);
+const plan=k=>S.plans[k]||{name:k,cpu:0,ram:0,disk:0,price:0};
+const fmt=n=>+(+n).toFixed(2);
+
+async function api(method,url,body){
+  const r=await fetch(url,{method,headers:{'Content-Type':'application/json','X-Dockyard':'1'},body:body?JSON.stringify(body):undefined,credentials:'same-origin'});
+  const j=await r.json().catch(()=>({}));
+  if(r.status===401&&url!=='/api/login'){showLogin();throw new Error(j.error||'Signed out')}
+  if(!r.ok)throw new Error(j.error||'Something went wrong. Try again.');
+  return j;
+}
+function ago(t){const s=(Date.now()-new Date(t))/1000;if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+' min ago';if(s<86400)return Math.floor(s/3600)+' h ago';return Math.floor(s/86400)+' d ago'}
+function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;$('#toasts').appendChild(t);setTimeout(()=>t.remove(),4500)}
+
+/* ---------- auth / boot ---------- */
+function showLogin(){closeTerminal();S.me=null;clearTimeout(timer);closeDrawer();closeModal();$('#shell').hidden=true;$('#login').hidden=false;setTimeout(()=>$('#lEmail').focus(),0)}
+function showApp(){
+  $('#login').hidden=true;$('#shell').hidden=false;
+  $('#navCust').hidden=!isAdmin();
+  $('#me').innerHTML=`<b>${esc(S.me.name)}</b>${esc(S.me.email)}`;
+  S.route='overview';render();
+}
+async function doLogin(){
+  const b=$('#lGo');b.disabled=true;$('#lErr').textContent='';
+  try{await api('POST','/api/login',{email:$('#lEmail').value,password:$('#lPass').value});$('#lPass').value='';await boot()}
+  catch(e){$('#lErr').textContent=e.message}
+  b.disabled=false;
+}
+async function boot(){
+  try{const j=await api('GET','/api/me');Object.assign(S,{me:j.user,plans:j.plans,totals:j.totals,ssh:j.ssh,canManage:j.canManage,hasVolume:j.hasVolume})}catch{return}
+  showApp();await load();loop();
+}
+let timer=null;
+function loop(){clearTimeout(timer);timer=setTimeout(async()=>{if(S.me){try{await load()}catch{}loop()}},4000)}
+
+async function load(){
+  const calls=[api('GET','/api/servers')];
+  if(isAdmin())calls.push(api('GET','/api/customers'),api('GET','/api/events'));
+  const [s,c,e]=await Promise.all(calls);
+  S.servers=s.servers;if(c)S.customers=c.customers;if(e)S.events=e.events;
+  refreshUI();
+}
+function refreshUI(){
+  const modal=!!$('#modalRoot').firstChild;
+  if(S.route==='servers')renderGrid();
+  else if(!modal)$('#view').innerHTML=viewHTML();
+  const s=get(S.drawerId);
+  if(S.drawerId!=null&&!s)closeDrawer();
+  else if(s){const a=$('#drActions'),u=$('#drUsage');if(a)a.innerHTML=statusHTML(s);if(u)u.innerHTML=usageHTML(s)}
+}
+
+/* ---------- pieces ---------- */
+function buttons(s,small){
+  const c=small?'btn sm':'btn';
+  if(s.status==='suspended')return isAdmin()?`<button class="${c}" data-action="resume" data-id="${s.id}">Resume</button>`:'';
+  return `<button class="${c}" data-action="reboot" data-id="${s.id}">Reboot</button>${isAdmin()?`<button class="${c}" data-action="suspend" data-id="${s.id}">Suspend</button>`:''}`;
+}
+function statusHTML(s){return `<span class="status ${s.status}" style="margin-right:auto"><i class="lamp"></i>${STATUS[s.status]||s.status}${s.overDisk?'<span class="badge">Over disk quota</span>':''}</span>${buttons(s,false)}`}
+function meter(label,val,max,text,color){
+  const pct=max?Math.min(100,val/max*100):0;
+  return `<div class="meter"><span>${label}</span><b>${text}</b><div class="bar"><i style="width:${pct.toFixed(1)}%;background:${pct>=90?'var(--danger)':color}"></i></div></div>`;
+}
+function usageHTML(s){
+  const p=plan(s.plan),u=s.usage,c=col(s).bg,off=s.status==='suspended';
+  return meter('CPU',u.cpu,p.cpu,off?'-':Math.round(u.cpu/p.cpu*100)+'%',c)+
+         meter('Memory',u.ramMB,p.ram*1024,off?'-':u.ramMB+' MB of '+fmt(p.ram*1024)+' MB',c)+
+         meter('Disk',u.diskMB,p.disk*1024,u.diskMB+' MB of '+fmt(p.disk*1024)+' MB',c);
+}
+function stackBar(label,key,unit){
+  const segs=S.servers.map(s=>({s,v:plan(s.plan)[key]}));
+  const used=segs.reduce((a,x)=>a+x.v,0),total=S.totals[key],free=Math.max(total-used,0);
+  return `<div class="cap"><div class="cap-head"><b>${label}</b><span>${fmt(used)} of ${fmt(total)} ${unit} reserved</span></div>
+    <div class="stack" role="img" aria-label="${fmt(used)} of ${fmt(total)} ${unit} reserved">${segs.map(x=>`<i style="flex:${x.v};background:${col(x.s).bg}" title="${esc(x.s.name)}: ${x.v} ${unit}"></i>`).join('')}<i class="free" style="flex:${free}" title="Free: ${fmt(free)} ${unit}"></i></div></div>`;
+}
+function banners(){
+  if(!isAdmin())return '';
+  let b='';
+  if(!S.canManage)b+=`<div class="banner" role="alert"><b>Account management is off.</b> The panel is not running as root inside the included Docker image, so it cannot create Linux accounts.</div>`;
+  if(!S.hasVolume)b+=`<div class="banner" role="alert"><b>No volume attached.</b> Customer files and SSH keys are lost on every redeploy. Add a volume to this Railway service.</div>`;
+  if(!S.ssh.host||!S.ssh.port)b+=`<div class="banner" role="alert"><b>SSH address is not set.</b> Add a TCP proxy for port 2222 in Railway, then set <code>SSH_HOST</code> and <code>SSH_PUBLIC_PORT</code> in Variables.</div>`;
+  return b;
+}
+
+/* ---------- views ---------- */
+function viewHTML(){return S.route==='overview'?viewOverview():S.route==='servers'?viewServers():viewCustomers()}
+function viewOverview(){
+  const act=S.servers.filter(s=>s.status==='active').length;
+  const live=S.servers.reduce((a,s)=>{a.cpu+=s.usage.cpu;a.ram+=s.usage.ramMB;return a},{cpu:0,ram:0});
+  return `<header class="top"><div><h1>Overview</h1><p class="sub">${S.servers.length} server${S.servers.length===1?'':'s'}, ${act} active. Using ${fmt(live.cpu)} vCPU and ${fmt(live.ram/1024)} GB of memory right now.</p></div>
+    ${isAdmin()?'<div class="top-actions"><button class="btn" data-action="term" data-target="host">Root terminal</button><button class="btn primary" data-action="new">New server</button></div>':''}</header>${banners()}
+  <section class="panel"><h2>Shared server capacity</h2><p class="hint">Each block is one customer server. The hatched space is what you can still sell.</p>
+    ${stackBar('vCPU','cpu','vCPU')}${stackBar('Memory','ram','GB')}${stackBar('Disk','disk','GB')}
+    ${S.servers.length?`<div class="legend">${S.servers.map(s=>`<span><i style="background:${col(s).bg}"></i>${esc(s.name)}</span>`).join('')}</div>`:''}
+  </section>
+  ${isAdmin()?`<section class="panel"><h2>Recent activity</h2><ul class="log" style="margin-top:10px">${S.events.length?S.events.map(a=>`<li><time>${ago(a.at)}</time><span>${esc(a.msg)}</span></li>`).join(''):'<li><span class="hint" style="margin:0">No activity yet.</span></li>'}</ul></section>`:''}`;
+}
+function viewServers(){
+  return `<header class="top"><div><h1>Servers</h1><p class="sub">${isAdmin()?'Every customer account on this server.':'Your servers.'}</p></div>
+    ${isAdmin()?'<button class="btn primary" data-action="new">New server</button>':''}</header>${banners()}
+  <div class="tools"><input class="search" id="q" type="search" placeholder="Search by name or customer" value="${esc(S.q)}" aria-label="Search servers">
+  <div class="chips" id="chips">${['all','active','suspended'].map(f=>`<button class="chip ${S.filter===f?'on':''}" data-action="filter" data-f="${f}">${f[0].toUpperCase()+f.slice(1)}</button>`).join('')}</div></div>
+  <div class="yard" id="yard"></div>`;
+}
+function card(s){
+  const p=plan(s.plan),c=col(s);
+  return `<article class="cn ${s.status}" data-status="${s.status}" style="--c:${c.bg};--t:${c.fg}">
+    <button class="cn-top" data-action="open" data-id="${s.id}" aria-label="Open ${esc(s.name)}"><span class="plate">${esc(s.code)}</span><span class="cn-name">${esc(s.name)}</span><span class="cn-img">${esc(p.name)} plan</span></button>
+    <div class="cn-body">
+      <div class="owner"><b>${esc(s.ownerName)}</b><span>${fmt(p.cpu)} vCPU, ${fmt(p.ram)} GB, ${fmt(p.disk)} GB</span></div>
+      <div style="display:grid;gap:10px">${usageHTML(s)}</div>
+      <div class="cn-foot"><span class="status ${s.status}"><i class="lamp"></i>${STATUS[s.status]||s.status}${s.overDisk?'<span class="badge">Over quota</span>':''}</span><span class="acts">${buttons(s,true)}</span></div>
+    </div></article>`;
+}
+function renderGrid(){
+  let y=$('#yard');if(!y){$('#view').innerHTML=viewHTML();y=$('#yard')}
+  const q=S.q.trim().toLowerCase();
+  const list=S.servers.filter(s=>(S.filter==='all'||s.status===S.filter)&&(!q||s.name.toLowerCase().includes(q)||s.ownerName.toLowerCase().includes(q)));
+  y.innerHTML=list.length?list.map(card).join(''):`<div class="empty"><p>${S.servers.length?'No servers match this search or filter.':(isAdmin()?'No servers yet. Create one to give a customer their own account on this machine.':'You have no servers yet. Ask your provider to set one up.')}</p>${isAdmin()&&!S.servers.length?'<button class="btn primary" data-action="new">New server</button>':''}</div>`;
+}
+function viewCustomers(){
+  const rev=S.servers.reduce((a,s)=>a+plan(s.plan).price,0);
+  return `<header class="top"><div><h1>Customers</h1><p class="sub">${S.customers.length} customer${S.customers.length===1?'':'s'}, $${rev} per month from ${S.servers.length} server${S.servers.length===1?'':'s'}.</p></div>
+    <button class="btn primary" data-action="add-customer">Add customer</button></header>
+  <div class="tablewrap"><table><thead><tr><th>Customer</th><th>Email</th><th>Servers</th><th>Monthly</th><th></th></tr></thead><tbody>
+  ${S.customers.length?S.customers.map((c,k)=>{const mine=S.servers.filter(s=>s.ownerId===c.id);const sum=mine.reduce((a,s)=>a+plan(s.plan).price,0);
+    return `<tr><td><div class="who"><span class="av" style="background:${AV[k%AV.length]}">${esc(c.name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase())}</span>${esc(c.name)}</div></td><td>${esc(c.email)}</td><td>${mine.length}</td><td>$${sum}</td><td><button class="btn sm danger" data-action="del-customer" data-id="${c.id}">Remove</button></td></tr>`}).join(''):'<tr><td colspan="5" style="color:var(--muted)">No customers yet. Add one, then create a server for them.</td></tr>'}
+  </tbody></table></div>`;
+}
+function render(){
+  $$('.nav [data-route]').forEach(b=>b.classList.toggle('on',b.dataset.route===S.route));
+  $('#view').innerHTML=viewHTML();
+  if(S.route==='servers')renderGrid();
+}
+function go(r){S.route=r;render();window.scrollTo(0,0)}
+
+/* ---------- server actions ---------- */
+const DONE={suspend:'suspended',resume:'resumed',reboot:'rebooted'};
+async function act(id,a){
+  const s=get(id);if(!s)return;
+  try{await api('POST',`/api/servers/${id}/${a}`);toast(`${s.name} ${DONE[a]}`)}catch(e){toast(e.message)}
+  try{await load()}catch{}
+}
+async function removeServer(id){
+  const s=get(id);try{await api('DELETE','/api/servers/'+id);toast(`${s.name} deleted`);closeDrawer();await load()}catch(e){toast(e.message)}
+}
+async function resetPassword(id){
+  try{const j=await api('POST',`/api/servers/${id}/password`);const s=get(id);s.password=j.password;S.reveal[id]=true;toast('New password set');drawerRender()}catch(e){toast(e.message)}
+}
+
+/* ---------- drawer ---------- */
+function drawerHTML(s){
+  const p=plan(s.plan),c=col(s);
+  const cmd=(s.host&&s.port)?`ssh ${s.user}@${s.host} -p ${s.port}`:'';
+  return `<div class="dr-head" style="--c:${c.bg};--t:${c.fg}"><button class="dr-close" data-action="close-drawer" aria-label="Close details">&times;</button>
+    <span class="plate">${esc(s.code)}</span><h2>${esc(s.name)}</h2><p>${esc(p.name)} plan, owned by ${esc(s.ownerName)}</p></div>
+  <div class="dr-body">
+    <div class="dr-actions" id="drActions">${statusHTML(s)}</div>
+    <section><h3>Connect</h3>
+      ${cmd?`<div class="field-box"><code>${esc(cmd)}</code><button class="btn sm" data-action="copy" data-text="${esc(cmd)}">Copy</button></div>`:'<p class="note">The SSH address has not been set up yet. Ask your provider.</p>'}
+      <div class="field-box"><span>Password <code>${S.reveal[s.id]?esc(s.password):'&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;'}</code></span>
+        <span class="acts"><button class="btn sm" data-action="reveal" data-id="${s.id}">${S.reveal[s.id]?'Hide':'Show'}</button><button class="btn sm" data-action="copy" data-text="${esc(s.password)}">Copy</button></span></div>
+      <div class="acts"><button class="btn sm" data-action="term" data-target="${s.id}" ${s.status==='suspended'?'disabled':''}>Open terminal</button><button class="btn sm" data-action="reset-pw" data-id="${s.id}">Reset password</button></div>
+      <p class="note">SFTP works with the same address and password. This account has no root access.</p></section>
+    <section><h3>Live usage</h3><div class="usage" id="drUsage">${usageHTML(s)}</div></section>
+    <section><h3>Plan limits</h3><div class="limits"><div><b>${fmt(p.cpu)}</b><span>vCPU</span></div><div><b>${fmt(p.ram)} GB</b><span>memory</span></div><div><b>${fmt(p.disk)} GB</b><span>disk</span></div></div>
+      <p class="note">Going over memory stops the account's processes. Going over CPU slows them down. Going far over disk suspends the account.</p></section>
+    <section><h3>Running processes</h3><div id="procBox"><p class="note">Loading...</p></div><button class="btn sm" data-action="procs" data-id="${s.id}">Refresh</button></section>
+    ${isAdmin()?`<section><h3>Delete server</h3><p class="note" style="margin:0 0 10px">This deletes the account and every file in its home folder. It cannot be undone.</p><button class="btn danger" data-action="delete" data-id="${s.id}">Delete ${esc(s.name)}</button></section>`:''}
+  </div>`;
+}
+function drawerRender(){const s=get(S.drawerId);if(!s)return;const d=$('#drawer'),top=d.scrollTop;d.innerHTML=drawerHTML(s);d.scrollTop=top;loadProcs(s.id)}
+function openDrawer(id){S.drawerId=id;drawerRender();$('#drawer').scrollTop=0;$('#drawer').classList.add('open');$('#drawer').setAttribute('aria-hidden','false');$('#scrim').classList.add('on')}
+function closeDrawer(){S.drawerId=null;$('#drawer').classList.remove('open');$('#drawer').setAttribute('aria-hidden','true');$('#scrim').classList.remove('on')}
+async function loadProcs(id){
+  try{
+    const j=await api('GET',`/api/servers/${id}/processes`);const b=$('#procBox');if(!b||S.drawerId!==id)return;
+    b.innerHTML=j.processes.length?`<table class="ptable"><thead><tr><th>PID</th><th>Name</th><th>Memory</th><th>CPU</th></tr></thead><tbody>${j.processes.map(p=>`<tr><td>${p.pid}</td><td>${esc(p.name)}</td><td>${p.ramMB} MB</td><td>${Math.round(p.cpu*100)}%</td></tr>`).join('')}</tbody></table>`:'<p class="note">Nothing is running. Processes appear when the customer logs in over SSH.</p>';
+  }catch(e){const b=$('#procBox');if(b)b.innerHTML=`<p class="note">${esc(e.message)}</p>`}
+}
+
+/* ---------- modals ---------- */
+function openModal(html){$('#modalRoot').innerHTML=`<div class="modal-wrap" data-action="close-modal-bg"><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`;const f=$('#modalRoot input:not([type=radio]),#modalRoot select');if(f)f.focus()}
+function closeModal(){$('#modalRoot').innerHTML=''}
+function freeCap(){
+  const u=S.servers.reduce((a,s)=>{const p=plan(s.plan);a.cpu+=p.cpu;a.ram+=p.ram;a.disk+=p.disk;return a},{cpu:0,ram:0,disk:0});
+  return {cpu:S.totals.cpu-u.cpu,ram:S.totals.ram-u.ram,disk:S.totals.disk-u.disk};
+}
+function openCreate(){
+  let n=1;while(S.servers.some(s=>s.name==='server'+n))n++;
+  const owners=[{id:S.me.id,name:'You (admin)'},...S.customers],f=freeCap();
+  const fits=p=>p.cpu<=f.cpu+1e-9&&p.ram<=f.ram+1e-9&&p.disk<=f.disk+1e-9;
+  const entries=Object.entries(S.plans),first=entries.find(([,p])=>fits(p));
+  openModal(`<h2>New server</h2>
+    <label class="lbl" for="cName" style="margin-top:0">Account name</label><input class="in" id="cName" value="server${n}" autocomplete="off" spellcheck="false">
+    <label class="lbl" for="cOwner">Customer</label><select class="in" id="cOwner">${owners.map(o=>`<option value="${o.id}">${esc(o.name)}</option>`).join('')}</select>
+    <span class="lbl">Plan</span>
+    <div class="plans">${entries.map(([k,p])=>`<label class="plan"><input type="radio" name="plan" value="${k}" ${first&&first[0]===k?'checked':''} ${fits(p)?'':'disabled'}><span><b>${esc(p.name)}<em style="font-style:normal">$${p.price}</em></b><small>${fmt(p.cpu)} vCPU, ${fmt(p.ram)} GB RAM, ${fmt(p.disk)} GB disk</small></span></label>`).join('')}</div>
+    <p class="note">${first?'Creates a Linux account with its own home folder, SSH password and limits on this server.':'No free capacity left. Delete a server or raise the TOTAL_ variables.'}</p>
+    <p class="err" id="cErr" role="alert"></p>
+    <div class="mfoot"><button class="btn" data-action="close-modal">Cancel</button><button class="btn primary" id="cGo" data-action="create" ${first?'':'disabled'}>Create server</button></div>`);
+}
+async function createServer(){
+  const name=$('#cName').value.trim(),b=$('#cGo'),pl=$('input[name=plan]:checked');
+  if(!/^[a-z][a-z0-9-]{1,23}$/.test(name)){$('#cErr').textContent='Use 2 to 24 lowercase letters, numbers or hyphens, starting with a letter.';return}
+  if(!pl){$('#cErr').textContent='Choose a plan.';return}
+  b.disabled=true;b.textContent='Creating...';$('#cErr').textContent='';
+  try{
+    await api('POST','/api/servers',{name,ownerId:+$('#cOwner').value,plan:pl.value});
+    closeModal();toast(`${name} created`);S.route='servers';render();await load();
+  }catch(e){$('#cErr').textContent=e.message;b.disabled=false;b.textContent='Create server'}
+}
+function openCustomer(){
+  openModal(`<h2>Add customer</h2>
+    <label class="lbl" for="uName" style="margin-top:0">Full name</label><input class="in" id="uName" autocomplete="off">
+    <label class="lbl" for="uMail">Email</label><input class="in" id="uMail" type="email" autocomplete="off">
+    <label class="lbl" for="uPass">Password</label><input class="in" id="uPass" type="text" autocomplete="off" placeholder="At least 8 characters">
+    <p class="note">The customer signs in here with this email and password to see their own servers.</p>
+    <p class="err" id="uErr" role="alert"></p>
+    <div class="mfoot"><button class="btn" data-action="close-modal">Cancel</button><button class="btn primary" id="uGo" data-action="save-customer">Add customer</button></div>`);
+}
+async function saveCustomer(){
+  const b=$('#uGo');b.disabled=true;$('#uErr').textContent='';
+  try{await api('POST','/api/customers',{name:$('#uName').value,email:$('#uMail').value,password:$('#uPass').value});closeModal();toast('Customer added');await load();render()}
+  catch(e){$('#uErr').textContent=e.message;b.disabled=false}
+}
+function copy(text){
+  const done=()=>toast('Copied');
+  const fb=()=>{const a=document.createElement('textarea');a.value=text;document.body.appendChild(a);a.select();try{document.execCommand('copy');done()}catch{toast('Copy failed. Select the text and copy it manually.')}a.remove()};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done,fb);else fb();
+}
+function armed(t,label,run){
+  if(t.dataset.armed){run();return}
+  const old=t.textContent;t.dataset.armed='1';t.textContent=label;
+  setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent=old}},4000);
+}
+
+/* ---------- terminal ---------- */
+const KEYS={tab:'\t',esc:'\x1b',cc:'\x03',cd:'\x04',up:'\x1b[A',down:'\x1b[B',right:'\x1b[C',left:'\x1b[D'};
+let T=null;
+function openTerminal(target,title){
+  if(typeof Terminal==='undefined'||typeof FitAddon==='undefined'){toast('The terminal library did not load. Reload the page and try again.');return}
+  closeTerminal();
+  const wrap=$('#termWrap');wrap.hidden=false;$('#termTitle').textContent=title;$('#termBox').innerHTML='';
+  const term=new Terminal({cursorBlink:true,fontSize:14,scrollback:3000,fontFamily:'ui-monospace,Menlo,Consolas,monospace',theme:{background:'#19212B'}});
+  const fit=new FitAddon.FitAddon();term.loadAddon(fit);term.open($('#termBox'));
+  try{fit.fit()}catch{}
+  const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/terminal/'+target);
+  ws.binaryType='arraybuffer';
+  const sendSize=()=>{try{fit.fit()}catch{}if(ws.readyState===1)ws.send(JSON.stringify({r:[term.cols,term.rows]}))};
+  ws.onopen=()=>{sendSize();term.focus()};
+  ws.onmessage=e=>term.write(typeof e.data==='string'?e.data:new Uint8Array(e.data));
+  let opened=false;ws.addEventListener('open',()=>{opened=true});
+  ws.onclose=()=>{term.write(opened?'\r\n\x1b[33m[connection closed]\x1b[0m\r\n':'\r\n\x1b[31m[could not connect. Is the account active, and are too many terminals open?]\x1b[0m\r\n')};
+  term.onData(d=>{if(ws.readyState===1)ws.send(JSON.stringify({i:d}))});
+  const ro=new ResizeObserver(()=>sendSize());ro.observe($('#termBox'));
+  T={term,ws,ro};
+}
+function closeTerminal(){
+  if(!T)return;
+  try{T.ro.disconnect()}catch{}try{T.ws.close()}catch{}try{T.term.dispose()}catch{}
+  T=null;$('#termWrap').hidden=true;$('#termBox').innerHTML='';
+}
+$('#termKeys').addEventListener('pointerdown',e=>{
+  const b=e.target.closest('[data-key]');if(!b)return;
+  e.preventDefault();
+  if(T&&T.ws.readyState===1)T.ws.send(JSON.stringify({i:KEYS[b.dataset.key]}));
+  if(T)T.term.focus();
+});
+
+/* ---------- events ---------- */
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('[data-action]');if(!t)return;
+  const a=t.dataset.action,id=+t.dataset.id;
+  switch(a){
+    case 'login':doLogin();break;
+    case 'logout':try{await api('POST','/api/logout')}catch{}showLogin();break;
+    case 'nav':go(t.dataset.route);break;
+    case 'new':openCreate();break;
+    case 'open':openDrawer(id);break;
+    case 'suspend':case 'resume':case 'reboot':act(id,a);break;
+    case 'close-drawer':closeDrawer();break;
+    case 'close-modal':closeModal();break;
+    case 'close-modal-bg':if(e.target===t)closeModal();break;
+    case 'create':createServer();break;
+    case 'add-customer':openCustomer();break;
+    case 'save-customer':saveCustomer();break;
+    case 'del-customer':armed(t,'Click again to remove',async()=>{try{await api('DELETE','/api/customers/'+id);toast('Customer removed');await load();render()}catch(err){toast(err.message)}});break;
+    case 'filter':S.filter=t.dataset.f;$$('#chips .chip').forEach(c=>c.classList.toggle('on',c.dataset.f===S.filter));renderGrid();break;
+    case 'copy':copy(t.dataset.text);break;
+    case 'reveal':S.reveal[id]=!S.reveal[id];drawerRender();break;
+    case 'reset-pw':armed(t,'Click again to reset',()=>resetPassword(id));break;
+    case 'procs':loadProcs(id);break;
+    case 'term':{const tg=t.dataset.target;const sv=tg==='host'?null:get(+tg);openTerminal(tg,tg==='host'?'Root terminal':(sv?sv.name:'Terminal'));break}
+    case 'close-term':closeTerminal();break;
+    case 'delete':armed(t,'Click again to delete',()=>removeServer(id));break;
+  }
+});
+document.addEventListener('input',e=>{if(e.target.id==='q'){S.q=e.target.value;renderGrid()}});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&!T){if($('#modalRoot').firstChild)closeModal();else if(S.drawerId!=null)closeDrawer()}
+  if(e.key==='Enter'){
+    if(e.target.id==='lEmail'||e.target.id==='lPass')doLogin();
+    if(e.target.id==='cName')createServer();
+  }
+});
+
+boot().then(()=>{if(!S.me)showLogin()});
+</script>
+</body>
+</html>
